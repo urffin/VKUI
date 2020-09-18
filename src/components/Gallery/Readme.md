@@ -16,7 +16,7 @@
           <Panel id="gallery">
             <PanelHeader>Gallery</PanelHeader>
             <Group header={<Header mode="secondary">Sticks right</Header>}>
-              <Gallery
+              <Gallery showArrows="true"
                 slideWidth="90%"
                 style={{ height: 150 }}
                 bullets="dark"
@@ -27,7 +27,7 @@
               </Gallery>
             </Group>
             <Group header={<Header mode="secondary">Sticks left</Header>}>
-              <Gallery
+              <Gallery showArrows="true"
                 slideWidth="90%"
                 align="right"
                 style={{ height: 150 }}
@@ -38,7 +38,7 @@
               </Gallery>
             </Group>
             <Group header={<Header mode="secondary">Centered</Header>}>
-              <Gallery
+              <Gallery showArrows="true"
                 slideWidth="90%"
                 align="center"
                 style={{ height: 150 }}
@@ -48,8 +48,18 @@
                 <div style={{ backgroundColor: 'var(--accent)' }} />
               </Gallery>
             </Group>
+            <Group header={<Header mode="secondary">Custom width 2</Header>}>
+              <Gallery showArrows="true" 
+                slideWidth="custom"
+                style={{ height: 150 }}
+              >
+                <div style={{ width: 100, backgroundColor: 'var(--destructive)' }} />
+                <div style={{ width: 100, backgroundColor: 'var(--button_commerce_background)' }} />
+                <div style={{ width: 100, backgroundColor: 'var(--accent)' }} />
+              </Gallery>
+            </Group>
             <Group header={<Header mode="secondary">Custom width</Header>}>
-              <Gallery
+              <Gallery showArrows="true" align="center"
                 slideWidth="custom"
                 style={{ height: 150 }}
               >
@@ -60,7 +70,7 @@
               </Gallery>
             </Group>
             <Group header={<Header mode="secondary">Controled</Header>}>
-              <Gallery
+              <Gallery showArrows="true"
                 slideWidth="90%"
                 align="center"
                 style={{ height: 150 }}

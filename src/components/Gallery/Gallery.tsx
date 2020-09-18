@@ -5,6 +5,8 @@ import classNames from '../../lib/classNames';
 import withPlatform from '../../hoc/withPlatform';
 import { HasAlign, HasPlatform } from '../../types';
 import { canUseDOM } from '../../lib/dom';
+import { hasMouse } from '../../helpers/inputUtils';
+import Icon24Chevron from '@vkontakte/icons/dist/24/chevron_right';
 
 export interface GalleryProps extends
   Omit<HTMLAttributes<HTMLDivElement>, 'onChange' | 'onDragStart' | 'onDragEnd'>,
@@ -19,6 +21,8 @@ export interface GalleryProps extends
   onChange?(current: GalleryState['current']): void;
   onEnd?({ targetIndex }: { targetIndex: GalleryState['current'] }): void;
   bullets?: 'dark' | 'light' | false;
+  showArrows?: boolean;
+  offsetOnHoverArrow?: number;
 }
 
 export interface GalleryState {
@@ -34,6 +38,10 @@ export interface GalleryState {
   animation: boolean;
   duration: number;
   dragging?: boolean;
+  canGoNext: boolean;
+  canGoPrev: boolean;
+  isOverLeftArrow: boolean;
+  isOverRightArrow: boolean;
 }
 
 export interface GallerySlidesState {
@@ -44,6 +52,8 @@ export interface GallerySlidesState {
 type SetTimeout = (duration: number) => void;
 
 type GetSlideRef = (index: number) => RefCallback<HTMLElement>;
+
+const DEFAULT_OFFSET_ON_HOVER_ARROW = 8;
 
 class Gallery extends Component<GalleryProps, GalleryState> {
   constructor(props: GalleryProps) {
@@ -63,6 +73,10 @@ class Gallery extends Component<GalleryProps, GalleryState> {
       slides: [],
       animation: false,
       duration: 0.24,
+      canGoNext: false,
+      canGoPrev: false,
+      isOverLeftArrow: false,
+      isOverRightArrow: false,
     };
 
     this.container = React.createRef();
@@ -146,7 +160,8 @@ class Gallery extends Component<GalleryProps, GalleryState> {
    * Считает отступ слоя галереи
    */
   calculateIndent(targetIndex: number) {
-    const { slides } = this.state;
+    const { slides, isOverLeftArrow, isOverRightArrow } = this.state;
+    const { offsetOnHoverArrow = DEFAULT_OFFSET_ON_HOVER_ARROW } = this.props;
 
     if (!this.isDraggable) {
       return 0;
@@ -157,12 +172,13 @@ class Gallery extends Component<GalleryProps, GalleryState> {
     if (targetSlide) {
       const { coordX, width } = targetSlide;
 
+      const arrowHoverOffset = (Number(isOverRightArrow) - Number(isOverLeftArrow)) * offsetOnHoverArrow;
       if (this.isCenterWithCustomWidth) {
         const viewportWidth = this.viewport.offsetWidth;
-        return viewportWidth / 2 - coordX - width / 2;
+        return viewportWidth / 2 - coordX - width / 2 + arrowHoverOffset;
       }
 
-      return this.validateIndent(-1 * coordX);
+      return this.validateIndent(-1 * coordX) - arrowHoverOffset;
     } else {
       return 0;
     }
@@ -244,13 +260,41 @@ class Gallery extends Component<GalleryProps, GalleryState> {
         deltaX: 0,
         shiftX: this.calculateIndent(targetIndex),
         current: targetIndex,
-      });
+        canGoNext: this.canGoNext(targetIndex),
+        canGoPrev: this.canGoPrev(targetIndex),
+      }, () => this.setState({
+        isOverLeftArrow: this.state.isOverLeftArrow && this.state.canGoPrev,
+        isOverRightArrow: this.state.isOverRightArrow && this.state.canGoNext,
+      }));
 
       if (this.timeout) {
         this.clearTimeout();
         this.setTimeout(this.props.timeout);
       }
     }
+  };
+
+  goNext: VoidFunction = () => {
+    const { current, slides } = this.state;
+    if (current + 1 < slides.length) {
+      this.go(current + 1);
+    }
+  };
+
+  goPrev: VoidFunction = () => {
+    const { current } = this.state;
+
+    if (current - 1 >= 0) {
+      this.go(current - 1);
+    }
+  };
+
+  canGoNext = (target: number = this.state.current): boolean => {
+    return this.isDraggable && target < this.state.slides.length - 1 && this.calculateIndent(target) > this.state.min;
+  };
+
+  canGoPrev = (target: number = this.state.current): boolean => {
+    return this.isDraggable && target > 0 && this.calculateIndent(target) < this.state.max;
   };
 
   onStart: TouchEventHandler = (e: TouchEvent) => {
@@ -280,6 +324,7 @@ class Gallery extends Component<GalleryProps, GalleryState> {
   onEnd: TouchEventHandler = (e: TouchEvent) => {
     const targetIndex = e.isSlide ? this.getTarget() : this.state.current;
     this.props.onDragEnd && this.props.onDragEnd(e);
+    this.setState({ dragging: false });
     this.go(targetIndex);
 
     if (this.props.onEnd) {
@@ -331,6 +376,8 @@ class Gallery extends Component<GalleryProps, GalleryState> {
     this.initializeSlides(() => {
       this.setState({
         shiftX: this.calculateIndent(this.state.current),
+        canGoNext: this.canGoNext(),
+        canGoPrev: this.canGoPrev(),
       });
     });
 
@@ -373,7 +420,7 @@ class Gallery extends Component<GalleryProps, GalleryState> {
   }
 
   render() {
-    const { animation, duration, current, dragging } = this.state;
+    const { animation, duration, current, dragging, canGoNext, canGoPrev } = this.state;
     const {
       children,
       slideWidth,
@@ -388,6 +435,7 @@ class Gallery extends Component<GalleryProps, GalleryState> {
       bullets,
       className,
       platform,
+      showArrows,
       ...restProps
     } = this.props;
 
@@ -405,6 +453,16 @@ class Gallery extends Component<GalleryProps, GalleryState> {
         'Gallery--dragging': dragging,
         'Gallery--custom-width': slideWidth === 'custom',
       })} {...restProps} ref={this.container}>
+        {hasMouse && showArrows && canGoPrev &&
+          <div className="Gallery__arrow Gallery__arrow-left"
+            onClick={this.goPrev}
+            onMouseEnter={() => this.setState({ isOverLeftArrow: true })}
+            onMouseLeave={() => this.setState({ isOverLeftArrow: false })}>
+            <div className="Gallery__arrow-icon">
+              <Icon24Chevron />
+            </div>
+          </div>
+        }
         <Touch
           className="Gallery__viewport"
           onStartX={this.onStart}
@@ -419,16 +477,25 @@ class Gallery extends Component<GalleryProps, GalleryState> {
             )}
           </div>
         </Touch>
-
+        {hasMouse && showArrows && canGoNext &&
+          <div className="Gallery__arrow Gallery__arrow-right"
+            onClick={this.goNext}
+            onMouseEnter={() => this.setState({ isOverRightArrow: true })}
+            onMouseLeave={() => this.setState({ isOverRightArrow: false })}>
+            <div className="Gallery__arrow-icon">
+              <Icon24Chevron />
+            </div>
+          </div>
+        }
         {bullets &&
-        <div className={classNames('Gallery__bullets', `Gallery__bullets--${bullets}`)}>
-          {React.Children.map(children, (_item: ReactElement, index: number) =>
-            <div
-              className={classNames('Gallery__bullet', { 'Gallery__bullet--active': index === current })}
-              key={index}
-            />,
-          )}
-        </div>
+          <div className={classNames('Gallery__bullets', `Gallery__bullets--${bullets}`)}>
+            {React.Children.map(children, (_item: ReactElement, index: number) =>
+              <div
+                className={classNames('Gallery__bullet', { 'Gallery__bullet--active': index === current })}
+                key={index}
+              />,
+            )}
+          </div>
         }
       </div>
     );
